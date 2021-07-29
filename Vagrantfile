@@ -7,8 +7,7 @@ SERVERS_COUNT = 5
 Vagrant.configure('2') do |config|
   config.vm.box = 'debian/buster64'
   config.vm.box_check_update = false
-  config.vm.network "public_network", bridge: "eth0: VirtualBox-Host-Only Ethernet Adapter"
-  config.vm.network "private_network", bridge: "eth1: VirtualBox-Host-Only Ethernet Adapter #2"	
+  
 
   # Limiter la RAM des VM
   config.vm.provider 'virtualbox' do |vb|
@@ -33,7 +32,7 @@ Vagrant.configure('2') do |config|
   SERVERS_COUNT.times do |idx|
     config.vm.define "s#{idx}" do |machine|
       machine.vm.hostname = "s#{idx}"
-      machine.vm.network 'private_network', ip: "192.168.50.#{idx * 10 + 10}"  
+      machine.vm.network 'private_network', ip: "192.168.50.#{idx * 10 + 10}"
       if idx.zero?
         machine.vm.network 'forwarded_port', guest: 80, host: 1080
         machine.vm.network 'forwarded_port', guest: 8080, host: 8080
