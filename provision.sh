@@ -5,41 +5,17 @@ set -e
 set -u
 
 # Je récupere le hostname du serveur
-USER_EMAIL=""
-USER_NAME=""
-GIT_HOST=""
-GIT_REPOSITORY=""
 HOSTNAME="$(hostname)"
 
-## Vérifier que le fichier .env est bien défini
-if [ ! -f /vagrant/.env ]; then
-	>&2 echo "ERROR: unable to find /vagrant/.env file"
+## Verifier que la paire de clefs pour ANSIBLE est presente avant de continuer
+if [ ! -f /vagrant/ansible_rsa ]; then
+	>&2 echo "ERROR: unable to find /vagrant/ansible_rsa keyfile"
 	exit 1
 fi
-if ! grep -q '^USER_EMAIL=' /vagrant/.env ; then
-	>&2 echo "ERROR: unable to find USER_EMAIL key in /vagrant/.env file"
+if [ ! -f /vagrant/ansible_rsa.pub ]; then
+	>&2 echo "ERROR: unable to find /vagrant/ansible_rsa.pub keyfile"
 	exit 1
 fi
-eval "$(grep '^USER_EMAIL=' /vagrant/.env)"
-
-if ! grep -q '^USER_NAME=' /vagrant/.env ; then
-	>&2 echo "ERROR: unable to find USER_NAME key in /vagrant/.env file"
-	exit 1
-fi
-eval "$(grep '^USER_NAME=' /vagrant/.env)"
-
-if ! grep -q '^GIT_HOST=' /vagrant/.env ; then
-	>&2 echo "ERROR: unable to find GIT_HOST key in /vagrant/.env file"
-	exit 1
-fi
-eval "$(grep '^GIT_HOST=' /vagrant/.env)"
-
-if ! grep -q '^GIT_REPOSITORY=' /vagrant/.env ; then
-	>&2 echo "ERROR: unable to find GIT_REPOSITORY key in /vagrant/.env file"
-	exit 1
-fi
-eval "$(grep '^GIT_REPOSITORY=' /vagrant/.env)"
-
 
 ## Verifier que la paire de clefs pour GITHUB est presente avant de continuer
 if [ ! -f /vagrant/githosting_rsa ]; then
@@ -53,10 +29,11 @@ fi
 
 export DEBIAN_FRONTEND=noninteractive
 
+apt-get --allow-releaseinfo-change update
 # Mettre à jour le catalogue des paquets debian
-apt-get update --allow-releaseinfo-change
+apt-get update
 
-# Installer les prérequis pour puppet
+# Installer les prérequis pour ansible
 apt-get install -y \
     apt-transport-https \
     ca-certificates \
@@ -65,28 +42,23 @@ apt-get install -y \
     wget \
     vim \
     gnupg2 \
+    python3 \
     software-properties-common
 
 
 # Si la machine s'appelle control
 if [ "$HOSTNAME" = "control" ]; then
-	# J'installe puppet dessus
+	# J'installe ansible dessus
 	apt-get install -y \
-		puppet-master
+		ansible	
 
 	# J'ajoute les deux clefs sur le noeud de controle
 	mkdir -p /root/.ssh
+	cp /vagrant/ansible_rsa /home/vagrant/.ssh/ansible_rsa
+	cp /vagrant/ansible_rsa.pub /home/vagrant/.ssh/ansible_rsa.pub
 	cp /vagrant/githosting_rsa /home/vagrant/.ssh/githosting_rsa
 	cp /vagrant/githosting_rsa.pub /home/vagrant/.ssh/githosting_rsa.pub
-	# Configuration de SSH en fonction des hosts
-	cat > /home/vagrant/.ssh/config <<-MARK
-	Host $GIT_HOST
-	  User git
-	  IdentityFile ~/.ssh/githosting_rsa
-	MARK
-
-	# Correction des permissions
-	chmod 0600 /home/vagrant/.ssh/*
+	chmod 0600 /home/vagrant/.ssh/*_rsa
 	chown -R vagrant:vagrant /home/vagrant/.ssh
 
 	# Utilisation du SSH-AGENT pour charger les clés une fois pour toute
@@ -98,22 +70,9 @@ if [ "$HOSTNAME" = "control" ]; then
 	## BEGIN PROVISION
 	eval \$(ssh-agent -s)
 	ssh-add ~/.ssh/githosting_rsa
+	ssh-add ~/.ssh/ansible_rsa
 	## END PROVISION
 	MARK
-
-	# Deploy git repository
-	su - vagrant -c "ssh-keyscan $GIT_HOST >> .ssh/known_hosts"
-	su - vagrant -c "sort -u < .ssh/known_hosts > .ssh/known_hosts.tmp && mv .ssh/known_hosts.tmp .ssh/known_hosts"
-	GIT_DIR="$(basename "$GIT_REPOSITORY" |sed -e 's/.git$//')" 
-	if [ ! -d "/home/vagrant/$(basename "$GIT_DIR")" ]; then
-        	su - vagrant -c "git clone '$GIT_REPOSITORY' '$GIT_DIR'"
-	fi
-	su - vagrant -c "git config --global user.name '$USER_NAME'"
-	su - vagrant -c "git config --global user.email '$USER_EMAIL'"
-else
-	# J'installe puppet dessus
-	apt-get install -y \
-		puppet
 fi
 
 # J'utilise /etc/hosts pour associer les IP aux noms de domaines
@@ -132,11 +91,19 @@ cat >> /etc/hosts <<MARK
 ## END PROVISION
 MARK
 
-# Désactive l'update automatique du cache apt + indexation (lourd en CPU)
-cat >> /etc/apt/apt.conf.d/99periodic-disable <<MARK
-APT::Periodic::Enable "0";
-MARK
+# J'autorise la clef sur tous les serveurs
+mkdir -p /root/.ssh
+cat /vagrant/ansible_rsa.pub >> /root/.ssh/authorized_keys
 
+# Je vire les duplicata (potentiellement gênant pour SSH)
+sort -u /root/.ssh/authorized_keys > /root/.ssh/authorized_keys.tmp
+mv /root/.ssh/authorized_keys.tmp /root/.ssh/authorized_keys
+
+# Je corrige les permissions
+touch /root/.ssh/config
+chmod 0600 /root/.ssh/*
+chmod 0644 /root/.ssh/config
+chmod 0700 /root/.ssh
+chown -R vagrant:vagrant /home/vagrant/.ssh
 
 echo "SUCCESS."
-
