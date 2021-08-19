@@ -35,8 +35,74 @@
       name: "haproxy"
       state: restarted
 - hosts: role_db
+  - name: add repository mariadb
+    apt_repository:
+      repo: ppa:vbernat/haproxy-1.7
+      state: present
+  - name: install mariadb
+    roles:
+      { role: adfinis-sygroup.mariadb }
+- hosts: role_nfs
   tasks:
-    - name: install mariadb
+    - name: Create mountable dir
+      file:
+        path=/share
+        state=directory
+        mode=777
+        owner=root
+        group=root
+    - name: set mountpoints
+      mount:
+        name=/share
+        src=/home/data
+        fstype=auto
+        opts=defaults,nobootwait
+        dump=0
+        passno=2
+        state=mounted
+
+    - name: Ensure NFS utilities are installed.
       apt:
-        name:
-          mariadb-server
+        name={{ item }}
+        state=installed
+        update_cache=yes
+      with_items:
+        - nfs-common
+        - nfs-kernel-server
+
+    - name: copy /etc/exports
+      template:
+        src=templates/exports.j2
+        dest=/etc/exports
+        owner=root
+        group=root
+
+    - name: restart nfs server
+      service:
+        name=nfs-kernel-server
+        state=restarted
+
+- hosts: role_apache
+  tasks:
+    - name: Ensure NFS common is installed.
+      apt:
+        name=nfs-common
+        state=installed
+        update_cache=yes
+
+    - name: Create mountable dir
+      file:
+        path=/mnt/nfs
+        state=directory
+        mode=777
+        owner=root
+        group=root
+    - name: set mountpoints
+      mount:
+        name=/mnt/nfs
+        src={{ hostvars[role_nfs].ipaddress }}:/share
+        fstype=nfs
+        opts=defaults,nobootwait
+        dump=0
+        passno=2
+        state=mounted
