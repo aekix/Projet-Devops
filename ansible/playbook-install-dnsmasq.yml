@@ -1,0 +1,31 @@
+---
+## Play
+- hosts: role_dns
+  tasks:
+    - name: install dnsmasq
+      apt:
+        name:
+          - dnsmasq
+    - name: enable dnsmasq
+      command: systemctl enable dnsmasq
+    - name: create dnsmasq file conf
+      template:
+        src: templates/dnsmasq.conf.j2
+        dest: /etc/dnsmasq.conf
+        owner: root
+        group: root
+        mode: '0755'
+    - name: create dnsmasq-dns file conf
+      template:
+        src: templates/dnsmasq-dns.conf.j2
+        dest: /etc/dnsmasq-dns.conf
+        owner: root
+        group: root
+        mode: '0755'
+    - name: create dnsmasq-host file conf
+      template:
+        src: templates/dnsmasq-hosts.conf.j2
+        dest: /etc/dnsmasq-hosts.conf
+        owner: root
+        group: root
+        mode: '0755'

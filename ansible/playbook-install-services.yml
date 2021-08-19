@@ -1,0 +1,42 @@
+---
+# Play
+- hosts: role_apache
+  tasks:
+  - name: install php apache
+    apt:
+      name:
+        - php7.3
+        - apache2
+- hosts: role_dns
+  tasks:
+  - name: add repository HAproxy
+    apt_repository:
+      repo: ppa:vbernat/haproxy-1.7
+      state: present
+  - name: install haproxy
+    apt:
+      name:
+        - haproxy
+  - name: configure haproxy
+    blockinfile:
+      path: /etc/haproxy/haproxy.cfg
+      block: |
+        frontend http_front
+          bind *:80
+          stats uri /haproxy?stats
+          default_backend http_back
+
+        backend http_back
+          balance roundrobin
+          server s1 192.168.50.20:80 check
+          server s2 192.168.50.30:80 check
+  - name: restart haproxy
+    service:
+      name: "haproxy"
+      state: restarted
+- hosts: role_db
+  tasks:
+    - name: install mariadb
+      apt:
+        name:
+          mariadb-server

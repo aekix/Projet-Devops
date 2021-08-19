@@ -1,0 +1,22 @@
+#### DNS ####
+domain-needed
+bogus-priv
+# Ficher des forwarders
+resolv-file=/etc/dnsmasq-dns.conf
+strict-order
+user=dnsmasq
+group=dnsmasq
+# Fichier des enregistrements A et AAAA
+addn-hosts=/etc/dnsmasq-hosts.conf
+expand-hosts
+domain=infra
+# LOG DNS
+log-queries
+log-dhcp
+dhcp-range=192.168.50.10,192.168.50.50,12h
+dhcp-option=option:netmask,255.255.255.0
+dhcp-option=option:router,192.168.50.254
+dhcp-option=option:dns-server,192.168.50.254
+dhcp-option=option:ntp-server,192.168.50.254
+dhcp-option=option:domain-name,infra
+dhcp-host=2c:27:d7:01:71:08,192.168.21.111

@@ -1,0 +1,29 @@
+s0 ansible_host=192.168.50.10 ansible_user=root
+s1 ansible_host=192.168.50.20 ansible_user=root
+s2 ansible_host=192.168.50.30 ansible_user=root
+s3 ansible_host=192.168.50.40 ansible_user=root
+s4 ansible_host=192.168.50.50 ansible_user=root
+control ansible_host=192.168.50.250 ansible_user=root
+
+[role_control]
+control
+
+[role_hosting]
+s0
+s1
+s2
+s3
+s4
+
+[role_dns]
+s0
+
+[role_apache]
+s1
+s2
+
+[role_db]
+s3
+
+[role_nfs]
+s4
