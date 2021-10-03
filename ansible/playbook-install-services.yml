@@ -1,49 +1,43 @@
 ---
 # Play
-- hosts: role_apache
-  tasks:
-  - name: install php apache
-    apt:
-      name:
-        - php7.3
-        - apache2
 - hosts: role_dns
   tasks:
-  - name: add repository HAproxy
-    apt_repository:
-      repo: ppa:vbernat/haproxy-1.7
-      state: present
-  - name: install haproxy
-    apt:
-      name:
-        - haproxy
-  - name: configure haproxy
-    blockinfile:
-      path: /etc/haproxy/haproxy.cfg
-      block: |
-        frontend http_front
-          bind *:80
-          stats uri /haproxy?stats
-          default_backend http_back
+    - name: add repository HAproxy
+      apt_repository:
+        repo: ppa:vbernat/haproxy-1.7
+        state: present
+    - name: install haproxy
+      apt:
+        name:
+          - haproxy
+    - name: configure haproxy
+      blockinfile:
+        path: /etc/haproxy/haproxy.cfg
+        block: |
+          frontend http_front
+            bind *:80
+            stats uri /haproxy?stats
+            default_backend http_back
 
-        backend http_back
-          balance roundrobin
-          server s1 192.168.50.20:80 check
-          server s2 192.168.50.30:80 check
-  - name: restart haproxy
-    service:
-      name: "haproxy"
-      state: restarted
+          backend http_back
+            balance roundrobin
+            server s1 192.168.50.20:80 check
+            server s2 192.168.50.30:80 check
+    - name: restart haproxy
+      service:
+        name: "haproxy"
+        state: restarted
 - hosts: role_db
-  - name: add repository mariadb
-    apt_repository:
-      repo: ppa:vbernat/haproxy-1.7
-      state: present
-  - name: install mariadb
-    roles:
-      { role: adfinis-sygroup.mariadb }
+  tasks:
+    - name: add repository mariadb
+      apt_repository:
+        repo: ppa:vbernat/haproxy-1.7
+        state: present
 - hosts: role_nfs
   tasks:
+    - name: install nfs
+      apt:
+        name=nfs-kernel-server
     - name: Create mountable dir
       file:
         path=/share
@@ -51,22 +45,20 @@
         mode=777
         owner=root
         group=root
-    - name: set mountpoints
+    - name: bind volume
       mount:
-        name=/share
-        src=/home/data
-        fstype=auto
-        opts=defaults,nobootwait
-        dump=0
-        passno=2
-        state=mounted
+        path: /share
+        src: /home/data
+        opts: bind
+        state: mounted
+        fstype: none
 
     - name: Ensure NFS utilities are installed.
       apt:
         name={{ item }}
-        state=installed
+        state=present
         update_cache=yes
-      with_items:
+      loop:
         - nfs-common
         - nfs-kernel-server
 
@@ -76,14 +68,24 @@
         dest=/etc/exports
         owner=root
         group=root
-
-    - name: restart nfs server
+    - name: restart nfs
       service:
         name=nfs-kernel-server
         state=restarted
-
 - hosts: role_apache
+  vars_files:
+    - vars/default.yml
   tasks:
+    - name: install php apache
+      apt:
+        name:
+          - php7.3
+          - apache2
+    - name: Install PHP Extensions
+      apt: name={{ item }}
+        update_cache=yes
+        state=latest
+      loop: "{{ php_modules }}"
     - name: Ensure NFS common is installed.
       apt:
         name=nfs-common
@@ -100,9 +102,7 @@
     - name: set mountpoints
       mount:
         name=/mnt/nfs
-        src={{ hostvars[role_nfs].ipaddress }}:/share
+        src=192.168.50.50:/share
         fstype=nfs
-        opts=defaults,nobootwait
-        dump=0
-        passno=2
+        opts=rw,sync,hard,intr
         state=mounted
