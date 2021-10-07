@@ -3,8 +3,6 @@
    ServerName {{ item.name }}
    ServerAlias www.{{ item.name }}
    DocumentRoot /var/www/{{ item.name }}/wordpress
-   ErrorLog /var/log/httpd/error.log
-   CustomLog /var/log/httpd/access.log combined
  
    <Directory /var/www/{{ item.name }}/wordpress>
          Options Indexes FollowSymLinks
