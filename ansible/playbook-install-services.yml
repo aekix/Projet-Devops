@@ -35,6 +35,13 @@
         state: present
 - hosts: role_nfs
   tasks:
+    - name: Create dir /home/data
+      file:
+        path=/home/data
+        state=directory
+        mode=777
+        owner=root
+        group=root
     - name: install nfs
       apt:
         name=nfs-kernel-server
