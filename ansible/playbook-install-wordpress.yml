@@ -1,19 +1,25 @@
-
 ---
 - hosts: role_apache
   vars_files:
     - vars/default.yml
   tasks:
-    - name: mysql 
+    - name: copy hosts in /etc/hosts
+      blockinfile:
+        path: /etc/hosts
+        block: |
+          127.0.0.1 devsec.com
+          127.0.0.1 devops.com
+          127.0.0.1 devsecops.com
+    - name: mysql
       apt:
         name:
           - default-mysql-server
-          - python3-pymysql    
+          - python3-pymysql
           - python2.7-mysqldb
 
     - name: Start mysqld service
       systemd: name=mysqld state=started enabled=yes
- 
+
     - name: Set MySQL root Password
       mysql_user:
         login_host: 'localhost'
@@ -22,14 +28,14 @@
         name: 'root'
         password: '{{ mysql_root_password }}'
         state: present
- 
+
     - name: Creates database for WordPress
       mysql_db:
         name: "{{ mysql_db }}"
         state: present
         login_user: root
         login_password: "{{ mysql_root_password }}"
- 
+
 #    - name: Create MySQL user for WordPress
 #      mysql_user:
 #        name: "{{ mysql_user }}"
@@ -44,7 +50,7 @@
         name=apache2
         state=started
         enabled=yes
- 
+
     - name: Create Apache Document Root
       file:
         path: "/var/www/{{ item.name }}"
@@ -57,7 +63,7 @@
     - name: Set up Apache VirtualHost
       template:
         src: "templates/httpd.conf.j2"
-        dest: "/etc/apache2/sites-available/{{ item.name }}"
+        dest: "/etc/apache2/sites-available/{{ item.conf }}"
         owner: root
         group: root
         mode: u=rw,g=r,o=r
@@ -72,12 +78,7 @@
       loop: "{{ virtualhost }}"
 
     - name: Update default Apache site
-      template:
-        src: "templates/site.conf.j2"
-        dest: /etc/apache2/sites-enabled/{{ item.conf }}
-        owner: root
-        group: root
-        mode: 0755
+      command: a2ensite {{ item.conf }}
       loop: "{{ virtualhost }}"
 
     - name: Set ownership
@@ -100,17 +101,17 @@
     - name: Set permissions for directories
       shell: "/usr/bin/find /var/www/{{ item.name }}/wordpress/ -type d -exec chmod 777 {} \\;"
       loop: "{{ virtualhost }}"
-    
+
     - name: Set permissions for files
       shell: "/usr/bin/find /var/www/{{ item.name }}/wordpress/ -type f -exec chmod 777 {} \\;"
       loop: "{{ virtualhost }}"
- 
+
     - name: Copy sample config file
       command: mv /var/www/{{ item.name }}/wordpress/wp-config-sample.php /var/www/{{ item.name }}/wordpress/wp-config.php creates=/var/www/{{ item.name }}/wordpress/wp-config.php
       become: yes
       loop: "{{ virtualhost }}"
 
-    - name: Update WordPress config file 
+    - name: Update WordPress config file
       lineinfile:
         dest=/var/www/devops.com/wordpress/wp-config.php
         regexp="{{ item.regexp }}"
