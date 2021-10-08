@@ -3,6 +3,7 @@
 - Vagrant
 - VirtualBox
 
+# Installation
 1. Clone the repo and move in
 2. Create yours VM with Vagrant
 >  Vagrant up
